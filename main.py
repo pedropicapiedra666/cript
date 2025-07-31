@@ -1,6 +1,8 @@
 import hashlib
 import random
 from datetime import datetime
+from fastapi import FastAPI
+from pydantic import BaseModel
 
 # =====================
 # CARGAR PALABRAS
@@ -10,25 +12,22 @@ def cargar_palabras(archivo="palabras.txt"):
         return [line.strip() for line in f.readlines()]
 
 # =====================
-# GENERAR MAPEOS
+# GENERAR DICCIONARIO
 # =====================
 def generar_diccionario(clave_privada, fecha=None):
     if fecha is None:
         fecha = datetime.now().strftime("%Y-%m-%d")
-    
-    caracteres = "abcdefghijklmnopqrstuvwxyz0123456789 "
+
+    caracteres = "abcdefghijklmnopqrstuvwxyz0123456789 .,!?¡¿"
     semilla = hashlib.sha256((clave_privada + fecha).encode()).hexdigest()
     random.seed(semilla)
-    
     palabras = cargar_palabras()
     random.shuffle(palabras)
-    
-    # Crear mapeo (incluye espacio)
-    diccionario = {car: palabras[i] for i, car in enumerate(caracteres)}
-    return diccionario
+
+    return {car: palabras[i] for i, car in enumerate(caracteres)}
 
 # =====================
-# CIFRADO
+# CIFRAR
 # =====================
 def cifrar(mensaje, clave_privada):
     diccionario = generar_diccionario(clave_privada)
@@ -36,26 +35,36 @@ def cifrar(mensaje, clave_privada):
     return " ".join(diccionario[char] if char in diccionario else char for char in mensaje)
 
 # =====================
-# DESCIFRADO
+# DESCIFRAR
 # =====================
 def descifrar(mensaje, clave_privada, fecha=None):
     diccionario = generar_diccionario(clave_privada, fecha)
     inverso = {v: k for k, v in diccionario.items()}
     palabras = mensaje.split()
-    return "".join(inverso.get(palabra, palabra) for palabra in palabras)
+    return "".join(inverso.get(p, p) for p in palabras)
 
 # =====================
-# PROBAR
+# API
 # =====================
-if __name__ == "__main__":
-    clave = input("🔑 Ingrese su clave privada: ")
-    opcion = input("¿Desea (C)ifrar o (D)escifrar? ").lower()
+app = FastAPI()
 
-    if opcion == "c":
-        mensaje = input("Ingrese el mensaje a cifrar: ")
-        print("🔒 Mensaje cifrado:\n", cifrar(mensaje, clave))
-    elif opcion == "d":
-        mensaje = input("Ingrese el mensaje a descifrar: ")
-        fecha = input("Ingrese la fecha del mensaje (YYYY-MM-DD) o Enter para hoy: ")
-        fecha = fecha if fecha else None
-        print("🔑 Mensaje descifrado:\n", descifrar(mensaje, clave, fecha))
+class CifrarRequest(BaseModel):
+    mensaje: str
+    clave: str
+
+class DescifrarRequest(BaseModel):
+    mensaje: str
+    clave: str
+    fecha: str | None = None  # Opcional
+
+@app.post("/cifrar")
+def endpoint_cifrar(data: CifrarRequest):
+    return {"mensaje_cifrado": cifrar(data.mensaje, data.clave)}
+
+@app.post("/descifrar")
+def endpoint_descifrar(data: DescifrarRequest):
+    return {"mensaje_descifrado": descifrar(data.mensaje, data.clave, data.fecha)}
+
+@app.get("/")
+def root():
+    return {"message": "API de cifrado funcionando en Vercel"}

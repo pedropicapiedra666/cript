@@ -14,10 +14,8 @@ def cargar_palabras(archivo="palabras.txt"):
 # =====================
 # GENERAR DICCIONARIO
 # =====================
-def generar_diccionario(clave_privada, fecha=None):
-    if fecha is None:
-        fecha = datetime.now().strftime("%Y-%m-%d")
-
+def generar_diccionario(clave_privada):
+    fecha = datetime.now().strftime("%Y-%m-%d")  # ← SIEMPRE se usa fecha actual
     caracteres = "abcdefghijklmnopqrstuvwxyz0123456789 .,!?¡¿"
     semilla = hashlib.sha256((clave_privada + fecha).encode()).hexdigest()
     random.seed(semilla)
@@ -37,8 +35,8 @@ def cifrar(mensaje, clave_privada):
 # =====================
 # DESCIFRAR
 # =====================
-def descifrar(mensaje, clave_privada, fecha=None):
-    diccionario = generar_diccionario(clave_privada, fecha)
+def descifrar(mensaje, clave_privada):
+    diccionario = generar_diccionario(clave_privada)
     inverso = {v: k for k, v in diccionario.items()}
     palabras = mensaje.split()
     return "".join(inverso.get(p, p) for p in palabras)
@@ -55,7 +53,6 @@ class CifrarRequest(BaseModel):
 class DescifrarRequest(BaseModel):
     mensaje: str
     clave: str
-    fecha: str | None = None  # Opcional
 
 @app.post("/cifrar")
 def endpoint_cifrar(data: CifrarRequest):
@@ -63,7 +60,7 @@ def endpoint_cifrar(data: CifrarRequest):
 
 @app.post("/descifrar")
 def endpoint_descifrar(data: DescifrarRequest):
-    return {"mensaje_descifrado": descifrar(data.mensaje, data.clave, data.fecha)}
+    return {"mensaje_descifrado": descifrar(data.mensaje, data.clave)}
 
 @app.get("/")
 def root():
